@@ -8,16 +8,14 @@
 
 ---
 
-<span style="color:#3BB9FF">**Pillar**</span> is a collection of server recipies in Java, connected to random aspects of server-side processing, distributed interaction and connection management.
+<span style="color:#3BB9FF">**Pillar**</span> is a collection of server recipies in Java, connected to random aspects of server logic, distributed interaction and connection management.
 
-**pillar.common** - command line client, periodic tasks, abstract time provider, wait strategies, transactions abstraction.
+**Common** - command line client, abstract time provider, wait strategies
+ 
+**CommonDB** - DB transactions abstraction
 
-**pillar.pulse** - abstract server heartbeat, provides information about other active servers running the same heartbeat.
+**Pulse** - abstract server heartbeat, provides information about other active servers running the same heartbeat.
 
-**pillar.leadership**
+**Tracker** - abstract object tracker with expiration (similar to ZooKeeper's ephemeral nodes) 
 
-**pillar.tracker**
-
-**pillar.locks**
-
-Detailed README for each subproject could be found in corresponding subfolders.
+**Resourceful** - resource locking
