@@ -16,30 +16,27 @@ import com.github.bamirov.pillar.db.jdbc.JDBCTransactionContext;
 import com.github.bamirov.resourceful.interfaces.Resource;
 import com.github.bamirov.resourceful.interfaces.ResourceDAO;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class JDBCResourceDAO implements ResourceDAO<Long, Long> {
-	protected String resourceTableName;
+	@Getter @Setter
+	protected String resourceTableName = "resources";
 
-	protected String resourceIdColumnName;
-	protected String lockerIdColumnName;
-	protected String lastLockIdColumnName;
+	@Getter @Setter
+	protected String resourceIdColumnName = "id_resource";
+	@Getter @Setter
+	protected String lockerIdColumnName = "id_locker";
+	@Getter @Setter
+	protected String lastLockIdColumnName = "last_lock";
 
-	protected String resourceParentsTableName;
+	@Getter @Setter
+	protected String resourceParentsTableName = "resource_parents";
 	
-	protected String resourceIdColumnNameParentsTable;
-	protected String resourceParentIdColumnName;
-	
-	public JDBCResourceDAO(String resourceTableName, String resourceIdColumnName, String lockerIdColumnName, 
-			String lastLockIdColumnName,
-			String resourceParentsTableName, String resourceIdColumnNameParentsTable, String resourceParentIdColumnName) {
-		this.resourceTableName = resourceTableName;
-		this.resourceIdColumnName = resourceIdColumnName;
-		this.lockerIdColumnName = lockerIdColumnName;
-		this.lastLockIdColumnName = lastLockIdColumnName;
-		
-		this.resourceParentsTableName = resourceParentsTableName;
-		this.resourceIdColumnNameParentsTable = resourceIdColumnNameParentsTable;
-		this.resourceParentIdColumnName = resourceParentIdColumnName;
-	}
+	@Getter @Setter
+	protected String resourceIdColumnNameParentsTable = "id_resource";
+	@Getter @Setter
+	protected String resourceParentIdColumnName = "id_parent_resource";
 	
 	protected Resource<Long, Long> loadResource(ResultSet rs) throws SQLException {
 		long resourceId = rs.getLong(0);//id_resource
@@ -60,7 +57,9 @@ public class JDBCResourceDAO implements ResourceDAO<Long, Long> {
 		
 		try {
 			pst = connection.prepareStatement(
-				String.format("SELECT * FROM `%s` WHERE `%s` = ?", resourceTableName, resourceIdColumnName)
+				String.format("SELECT `%s`, `%s`, `%s` FROM `%s` WHERE `%s` = ?", 
+						resourceIdColumnName, lockerIdColumnName, lastLockIdColumnName,						
+						resourceTableName, resourceIdColumnName)
 			);
 			pst.setLong(1, resourceId);
 			ResultSet rs = pst.executeQuery();
@@ -182,7 +181,8 @@ public class JDBCResourceDAO implements ResourceDAO<Long, Long> {
 			StringBuilder queryBuilder = new StringBuilder();
 			
 			queryBuilder.append(
-				String.format("SELECT r.* FROM `%s` r, `%s` p WHERE r.`%s` = p.`%s` AND p.`%s` IN (", 
+				String.format("SELECT r.`%s`, r.`%s`, r.`%s` FROM `%s` r, `%s` p WHERE r.`%s` = p.`%s` AND p.`%s` IN (",
+						resourceIdColumnName, lockerIdColumnName, lastLockIdColumnName,
 						resourceTableName, resourceParentsTableName, resourceIdColumnName, 
 						isChildren ? resourceIdColumnNameParentsTable : resourceParentIdColumnName, 
 						isChildren ? resourceParentIdColumnName : resourceIdColumnNameParentsTable)

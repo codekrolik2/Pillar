@@ -14,13 +14,12 @@ import com.github.bamirov.pillar.db.interfaces.TransactionContext;
  */
 public interface ServerPulseDAO<S> {
 	public ServerPulseRecord<S> createServer(TransactionContext tc, String registrationTime, long heartbeatPeriod, String serverInfo) throws Exception;
-	public void deleteServer(TransactionContext tc, S serverId) throws Exception;
+	public int deleteServer(TransactionContext tc, S serverId) throws Exception;
 
 	public Optional<ServerPulseRecord<S>> getServer(TransactionContext tc, S serverId) throws Exception;
 	public List<ServerPulseRecord<S>> getAllServers(TransactionContext tc) throws Exception;
 	
-	public void updateHeartbeat(TransactionContext tc, S serverId, String newHeartbeatTime, long heartbeatPeriod, String serverInfo) throws Exception;
+	public int updateHeartbeat(TransactionContext tc, S serverId, String newHeartbeatTime, long heartbeatPeriod, String serverInfo) throws Exception;
 
 	public Optional<ServerPulseRecord<S>> getRandomServer(TransactionContext tc) throws Exception;
-	public Optional<ServerPulseRecord<S>> getRandomServer(TransactionContext tc, long lastHeartbeatTime) throws Exception;
 }
