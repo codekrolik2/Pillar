@@ -1,4 +1,4 @@
-package org.pillar.commandline;
+package org.commandline;
 
 /**
  * Reads String commands from command line and processes them one by one.

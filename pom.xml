@@ -13,6 +13,7 @@
   	<module>Resourceful</module>
   	<module>ResourcefulJDBC</module>
   	<module>Tracker</module>
+  	<module>CommandLine</module>
   </modules>
   
   <properties>
@@ -26,12 +27,6 @@
   </properties>
   <dependencyManagement>
     <dependencies>
-      <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        <version>${lombok.version}</version>
-        <scope>provided</scope>
-      </dependency>
       <dependency>
         <groupId>com.github.bamirov.pillar</groupId>
         <artifactId>Common</artifactId>
@@ -59,10 +54,21 @@
       </dependency>
       <dependency>
         <groupId>com.github.bamirov.pillar</groupId>
+        <artifactId>CommandLine</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.github.bamirov.pillar</groupId>
         <artifactId>Tracker</artifactId>
         <version>${project.version}</version>
       </dependency>
       
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>

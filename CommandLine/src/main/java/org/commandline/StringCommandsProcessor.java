@@ -1,4 +1,4 @@
-package org.pillar.commandline;
+package org.commandline;
 
 import java.io.BufferedReader;
 import java.io.IOException;
