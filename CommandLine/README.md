@@ -11,3 +11,5 @@ Auto-generate usage info
 To work similar to linux terminal:
 	Figure out how to catch UP, DOWN, ctrl+shift+R
 ----
+
+Telnet client
