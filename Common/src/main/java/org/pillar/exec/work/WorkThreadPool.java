@@ -39,28 +39,45 @@ public abstract class WorkThreadPool<W> {
 		W work;
 		long delayMS;
 		Timestamp acceptTime;
+		ReentrantLock lock;
 		
 		public DelayedWork(W work, long delayMS, Timestamp acceptTime) {
 			this.work = work;
 			this.delayMS = delayMS;
 			this.acceptTime = acceptTime;
+			lock = new ReentrantLock();
 		}
 		
 		public long getDelay() {
-			Timestamp currentTime = timeProvider.getCurrentTime();
+			boolean timeJumpDetected = false;
+			
+			lock.lock();
+			try {
+				Timestamp currentTime = timeProvider.getCurrentTime();
 
-			//If time jumps back, best we can do is to pretend that we've just accepted the work and wait our delay again.
-			//Much worse would be to wait for additional (acceptTime - currentTime) on top of our delay.
-			if (currentTime.compareTo(acceptTime) < 0)
+				//If time jumps back, best we can do is to pretend that we've just accepted the work and wait our delay again.
+				//Much worse would be to wait for additional (acceptTime - currentTime) on top of our delay.
+				if (currentTime.compareTo(acceptTime) < 0) {
+					timeJumpDetected = true;
+					acceptTime = currentTime;
+				}
+				
+				//Also to minimize the effect of possible time jump back we reduce delay every time this method is called 
+				//to keep track of elapsed time.
+				//In this manner the elapsed time that was tracked won't be a part of additional wait caused 
+				//by time jumping back
+				delayMS -= (acceptTime.getDeltaInMs(currentTime));
 				acceptTime = currentTime;
+				
+			} finally {
+				lock.unlock();
+			}
 			
-			//Also to minimize the effect of possible time jump back we reduce delay every time this method is called 
-			//to keep track of elapsed time.
-			//In this manner the elapsed time that was tracked won't be a part of additional wait caused 
-			//by time jumping back
-			delayMS -= (acceptTime.getDeltaInMs(currentTime));
-			acceptTime = currentTime;
-			
+			//Also make sure all other jobs' times are shifted if necessary
+			if (timeJumpDetected)
+				for (DelayedWork w : q)
+					w.getDelay();
+		
 			return delayMS;
 		}
 
