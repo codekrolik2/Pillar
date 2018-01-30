@@ -16,3 +16,7 @@ Which might be just a WerkFlow!
 
 NOT DO:
 Semaphore locks - no clear use case for semaphore locks, and provided new deadlock resolution functionality it adds a lot of complexity to implementation.
+
+FIX:
+Allow locking a resource if some other resources in the tree are locked by the same locker that attempts to lock a given resource.
+Provided no other lockers lock resources in the tree.
