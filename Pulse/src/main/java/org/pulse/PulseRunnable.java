@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
+import org.apache.log4j.Logger;
 import org.pillar.exec.CustomSleepPeriodRunnable;
 import org.pillar.exec.interfaces.SleepTimeProvider;
 import org.pillar.time.interfaces.TimeProvider;
@@ -14,11 +15,9 @@ import org.pillar.wait.interfaces.WaitStrategy;
 import org.pulse.interfaces.Pulse;
 import org.pulse.interfaces.ServerPulseListener;
 import org.pulse.interfaces.ServerPulseRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
-    private static final Logger logger = LoggerFactory.getLogger(PulseRunnable.class);
+    private static final Logger logger = Logger.getLogger(PulseRunnable.class);
 	
     private Pulse<S> pulse;
     private Supplier<String> serverInfoGetter;
@@ -88,7 +87,7 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
 }
 
 class PulserTimeProvider implements SleepTimeProvider<Timestamp> {
-	final Logger logger = LoggerFactory.getLogger(PulserTimeProvider.class);
+	final Logger logger = Logger.getLogger(PulserTimeProvider.class);
 	
     protected WaitStrategy waitStrategy;
     

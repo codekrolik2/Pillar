@@ -20,7 +20,7 @@ public abstract class WorkThreadPool<W> {
 	protected ReentrantLock waitLock;
 	protected Condition waitCondition;
 	
-	public WorkThreadPool(int size, TimeProvider timeProvider) {
+	public WorkThreadPool(TimeProvider timeProvider) {
 		desiredSize = new AtomicInteger(-1);
 		this.size = new AtomicInteger(0);
 		threads = new HashSet<>();
@@ -29,7 +29,10 @@ public abstract class WorkThreadPool<W> {
 		this.timeProvider = timeProvider;
 		
 		q = new PriorityQueue<>();
-		
+	}
+	
+	public WorkThreadPool(int size, TimeProvider timeProvider) {
+		this(timeProvider);
 		adjustSize(size);
 	}
 	

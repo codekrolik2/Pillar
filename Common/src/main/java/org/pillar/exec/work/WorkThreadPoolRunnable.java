@@ -1,10 +1,9 @@
 package org.pillar.exec.work;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.Logger;
 
 public abstract class WorkThreadPoolRunnable<W> implements Runnable {
-	final Logger logger = LoggerFactory.getLogger(WorkThreadPoolRunnable.class);
+	final Logger logger = Logger.getLogger(WorkThreadPoolRunnable.class);
 	
 	public WorkThreadPool<W> pool;
 	

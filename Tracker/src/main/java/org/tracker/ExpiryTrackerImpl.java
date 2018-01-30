@@ -11,8 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.Logger;
 import org.tracker.interfaces.ObjectExpiryTracker;
 import org.tracker.interfaces.TrackedObject;
 import org.tracker.interfaces.TrackedObjectListener;
@@ -21,7 +20,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 public class ExpiryTrackerImpl<TI, A> implements ObjectExpiryTracker<TI, A> {
-    private static final Logger logger = LoggerFactory.getLogger(ExpiryTrackerImpl.class);
+    private static final Logger logger = Logger.getLogger(ExpiryTrackerImpl.class);
     
 	@AllArgsConstructor
 	protected class TrackedObjectInfo {

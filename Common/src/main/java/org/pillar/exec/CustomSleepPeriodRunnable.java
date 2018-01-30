@@ -2,13 +2,12 @@ package org.pillar.exec;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.log4j.Logger;
 
 import org.pillar.exec.interfaces.SleepTimeProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public abstract class CustomSleepPeriodRunnable<R> implements Runnable {
-	final Logger logger = LoggerFactory.getLogger(CustomSleepPeriodRunnable.class);
+	static final Logger logger = Logger.getLogger(CustomSleepPeriodRunnable.class);
 	
 	protected ScheduledExecutorService scheduler;
 	protected SleepTimeProvider<R> stp;

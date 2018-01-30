@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.log4j.Logger;
 import org.pillar.db.interfaces.TransactionContext;
 import org.pillar.db.interfaces.TransactionFactory;
 import org.pillar.time.interfaces.Timestamp;
@@ -19,11 +20,9 @@ import org.pulse.interfaces.ServerChecker;
 import org.pulse.interfaces.ServerPulseDAO;
 import org.pulse.interfaces.ServerPulseRecord;
 import org.pulse.interfaces.ServerPulseRecordCleaner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> implements Pulse<S> {
-    private static final Logger logger = LoggerFactory.getLogger(DefaultPulse.class);
+    private static final Logger logger = Logger.getLogger(DefaultPulse.class);
     
     private class ServerHbHistory {
     	Timestamp lastHeartbeatTime;
