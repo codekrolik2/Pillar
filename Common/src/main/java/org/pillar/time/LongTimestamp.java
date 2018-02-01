@@ -5,7 +5,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.pillar.time.interfaces.Timestamp;
 
+import lombok.Getter;
+
 public class LongTimestamp implements Timestamp {
+	@Getter
 	private long timeMs;
 	
 	public LongTimestamp(long timeMs) {

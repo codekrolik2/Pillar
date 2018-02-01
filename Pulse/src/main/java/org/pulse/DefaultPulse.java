@@ -82,11 +82,11 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
     }
     
     protected ServerPulseRecord<S> createServer(TransactionContext tc, Timestamp registrationTime, long heartbeatPeriod, String serverInfo) throws Exception {
-		return serverDAO.createServer(tc, registrationTime.toString(), heartbeatPeriod, serverInfo);
+		return serverDAO.createServer(tc, registrationTime, heartbeatPeriod, serverInfo);
     }
     
     protected void updateServerHeartbeat(TransactionContext tc, S serverId, Timestamp newHeartbeatTime, long heartbeatPeriod, String serverInfo) throws Exception {
-		serverDAO.updateHeartbeat(tc, serverId, newHeartbeatTime.toString(), heartbeatPeriod, serverInfo);
+		serverDAO.updateHeartbeat(tc, serverId, newHeartbeatTime, heartbeatPeriod, serverInfo);
     }
     
     public List<ServerPulseRecord<S>> getActiveServers() {
@@ -178,7 +178,6 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
         	}
         	//done updating
         	t.close();
-        	
         	
         	//2) TXN2: Get All pulse records and update local server definitions
         	t = connectionFactory.startTransaction();

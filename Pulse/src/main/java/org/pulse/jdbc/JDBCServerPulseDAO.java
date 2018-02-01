@@ -11,6 +11,7 @@ import java.util.Optional;
 import org.pillar.db.interfaces.TransactionContext;
 import org.pillar.db.jdbc.JDBCTransactionContext;
 import org.pillar.db.jdbc.JDBCTransactionFactory;
+import org.pillar.time.LongTimestamp;
 import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
 import org.pulse.interfaces.ServerPulseDAO;
@@ -50,7 +51,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 	}
 	
 	@Override
-	public ServerPulseRecord<Long> createServer(TransactionContext tc, String registrationTime, long heartbeatPeriod,
+	public ServerPulseRecord<Long> createServer(TransactionContext tc, Timestamp registrationTime, long heartbeatPeriod,
 			String serverInfo) throws Exception {
 		Connection connection = ((JDBCTransactionContext)tc).getConnection();
 		PreparedStatement pst = null;
@@ -60,8 +61,8 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 				String.format("INSERT INTO `%s` (`%s`, `%s`, `%s`, `%s`) VALUES (?, ?, ?, ?)", 
 						serversTable, registrationTimeCol, lastHeartbeatTimeCol, heartbeatPeriodCol, serverInfoCol)
 			);
-			pst.setString(1, registrationTime);
-			pst.setString(2, registrationTime);
+			pst.setLong(1, ((LongTimestamp)registrationTime).getTimeMs());
+			pst.setLong(2, ((LongTimestamp)registrationTime).getTimeMs());
 			pst.setLong(3, heartbeatPeriod);
 			pst.setString(4, serverInfo);
 			
@@ -138,7 +139,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 	}
 
 	@Override
-	public int updateHeartbeat(TransactionContext tc, Long serverId, String newHeartbeatTime, long heartbeatPeriod,
+	public int updateHeartbeat(TransactionContext tc, Long serverId, Timestamp newHeartbeatTime, long heartbeatPeriod,
 			String serverInfo) throws Exception {
 		Connection connection = ((JDBCTransactionContext)tc).getConnection();
 		PreparedStatement pst = null;
@@ -153,7 +154,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 						idServerCol)
 			);
 			
-			pst.setString(1, newHeartbeatTime);
+			pst.setLong(1, ((LongTimestamp)newHeartbeatTime).getTimeMs());
 			pst.setLong(1, heartbeatPeriod);
 			pst.setString(1, serverInfo);
 			pst.setLong(4, serverId);
