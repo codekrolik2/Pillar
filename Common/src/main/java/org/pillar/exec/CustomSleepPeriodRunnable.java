@@ -28,6 +28,15 @@ public abstract class CustomSleepPeriodRunnable<R> implements Runnable {
 		} finally {
 			if (sleepTime > 0)
 				scheduler.schedule(this, sleepTime, TimeUnit.MILLISECONDS);
+			else
+				logger.info(
+					String.format(
+						"Terminating Runnable [%s]: Received negative sleep time from SleepTimeProvider: [%s] [%s]",
+						this.getClass(),
+						sleepTime,
+						stp.getClass()
+					)
+				);
 		}
 	}
 	

@@ -11,8 +11,8 @@ import java.util.Optional;
 import org.pillar.db.interfaces.TransactionContext;
 import org.pillar.db.jdbc.JDBCTransactionContext;
 import org.pillar.db.jdbc.JDBCTransactionFactory;
+import org.pillar.time.LongTimeProvider;
 import org.pillar.time.LongTimestamp;
-import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
 import org.pulse.interfaces.ServerPulseDAO;
 import org.pulse.interfaces.ServerPulseRecord;
@@ -34,18 +34,20 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 	@Getter @Setter
 	protected String serverInfoCol = "server_info";
 	
-	protected TimeProvider timeProvider;
+	protected LongTimeProvider timeProvider;
 	
-	public JDBCServerPulseDAO(TimeProvider timeProvider) {
+	public JDBCServerPulseDAO(LongTimeProvider timeProvider) {
 		this.timeProvider = timeProvider;
 	}
 	
 	protected ServerPulseRecord<Long> loadServerPulseRecord(ResultSet rs) throws SQLException {
-		Long serverId = rs.getLong(0);
-		String info = rs.getString(1);
-		Timestamp creationTime = timeProvider.createTimestamp(rs.getString(2));
-		Timestamp lastHBTime = timeProvider.createTimestamp(rs.getString(3));
+		Long serverId = rs.getLong(1);
+		Timestamp creationTime = timeProvider.createTimestamp(rs.getLong(2));
+		Timestamp lastHBTime = timeProvider.createTimestamp(rs.getLong(3));
 		long hbPeriodMs = rs.getLong(4);
+		String info = rs.getString(5);
+		if (rs.wasNull())
+			info = null;
 		
 		return new JDBCServerPulseRecord(serverId, info, creationTime, lastHBTime, hbPeriodMs);
 	}
@@ -82,7 +84,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 		
 		try {
 			pst = connection.prepareStatement(
-				String.format("DELETE FROM `%s` WHERE `%s` = ?)", serversTable, idServerCol)
+				String.format("DELETE FROM `%s` WHERE `%s` = ?", serversTable, idServerCol)
 			);
 			pst.setLong(1, serverId);
 			
@@ -146,7 +148,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 		
 		try {
 			pst = connection.prepareStatement(
-				String.format("UPDATE `%s` SET `%s` = ?, `%s` = ?, `%s` = ? WHERE `%s` = ?)", 
+				String.format("UPDATE `%s` SET `%s` = ?, `%s` = ?, `%s` = ? WHERE `%s` = ?", 
 						serversTable, 
 						lastHeartbeatTimeCol,
 						heartbeatPeriodCol,
@@ -155,8 +157,8 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 			);
 			
 			pst.setLong(1, ((LongTimestamp)newHeartbeatTime).getTimeMs());
-			pst.setLong(1, heartbeatPeriod);
-			pst.setString(1, serverInfo);
+			pst.setLong(2, heartbeatPeriod);
+			pst.setString(3, serverInfo);
 			pst.setLong(4, serverId);
 			
 			return pst.executeUpdate();

@@ -213,4 +213,16 @@ public abstract class WorkThreadPool<W> {
 			waitLock.unlock();
 		}
 	}
+	
+	public int getSize() {
+		return size.get();
+	}
+	
+	public int getDesiredSize() {
+		return desiredSize.get();
+	}
+	
+	public boolean isShutdown() {
+		return desiredSize.get() <= 0;
+	}
 }

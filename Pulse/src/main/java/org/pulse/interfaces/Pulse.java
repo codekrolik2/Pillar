@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.pillar.time.interfaces.Timestamp;
 
 public interface Pulse<S> extends ServerPulseRecordCleanerRegistry<S> {
-	boolean registerServerHB(String serverInfo, Timestamp currentTime);
+	void registerServerHB(String serverInfo, Timestamp currentTime) throws Exception;
 	
 	void loseHeartbeat();
 	

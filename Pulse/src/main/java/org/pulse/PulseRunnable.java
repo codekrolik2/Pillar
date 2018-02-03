@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import org.apache.log4j.Logger;
@@ -11,6 +12,7 @@ import org.pillar.exec.CustomSleepPeriodRunnable;
 import org.pillar.exec.interfaces.SleepTimeProvider;
 import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
+import org.pillar.wait.WaitStrategies;
 import org.pillar.wait.interfaces.WaitStrategy;
 import org.pulse.interfaces.Pulse;
 import org.pulse.interfaces.ServerPulseListener;
@@ -25,7 +27,10 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
     
 	public PulseRunnable(ScheduledExecutorService scheduler, Pulse<S> pulse, Supplier<String> serverInfoGetter,
 			TimeProvider timeProvider, long heartbeatFrequency) {
-		super(scheduler, new PulserTimeProvider(timeProvider, heartbeatFrequency));
+		super(scheduler, 
+				new PulserTimeProvider(timeProvider, 
+						WaitStrategies.exponentialWait(heartbeatFrequency, TimeUnit.MILLISECONDS),
+						heartbeatFrequency));
 		
 		this.serverInfoGetter = serverInfoGetter;
 		this.pulse = pulse;
@@ -37,9 +42,7 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
 		try {
 			Timestamp hbTime = timeProvider.getCurrentTime();
 			
-			boolean heartbeatSuccess = pulse.registerServerHB(serverInfoGetter.get(), hbTime);
-			if (!heartbeatSuccess)
-				throw new Exception("Heartbeat lost");
+			pulse.registerServerHB(serverInfoGetter.get(), hbTime);
 			
 			notifySuccessfulHB(pulse.getActiveServerPulseRecord().get());
 			
@@ -72,7 +75,7 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
 			try {
 				pulseListener.hbSuccessful(server);
 			} catch (Exception e) {
-				logger.error("ServerPulseListener exception", e);
+				logger.error("ServerPulseListener.hbSuccessful exception", e);
 			}
     }
 
@@ -81,7 +84,7 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
 			try {
 				pulseListener.hbFailed(e);
 			} catch (Exception e1) {
-				logger.error("ServerPulseListener exception", e1);
+				logger.error("ServerPulseListener.hbFailed exception", e1);
 			}
     }
 }
@@ -95,8 +98,9 @@ class PulserTimeProvider implements SleepTimeProvider<Timestamp> {
     protected long heartbeatFrequency;
     protected int heartbeatRetryAttempts;
     
-    public PulserTimeProvider(TimeProvider timeProvider, long heartbeatFrequency) {
+    public PulserTimeProvider(TimeProvider timeProvider, WaitStrategy waitStrategy, long heartbeatFrequency) {
     	this.timeProvider = timeProvider;
+    	this.waitStrategy = waitStrategy;
     	this.heartbeatFrequency = heartbeatFrequency;
     }
     
@@ -116,6 +120,8 @@ class PulserTimeProvider implements SleepTimeProvider<Timestamp> {
 		else
 			sleepTime = heartbeatFrequency - delta;
 		
+		if (sleepTime < 0)
+			sleepTime = 0;
 		return sleepTime;
 	}
 	
@@ -123,7 +129,7 @@ class PulserTimeProvider implements SleepTimeProvider<Timestamp> {
 	public long getExceptionSleepTime(Exception e) {
 		//In case of error or otherwise lost heartbeat - Exponential wait
 		long sleepTime = waitStrategy.computeSleepTime(heartbeatRetryAttempts++);
-		logger.error("Exponential wait due to heartbeat loss; retry in " + sleepTime + " ms", e);
+		logger.error(String.format("Exponential wait due to heartbeat loss; retry in %d ms", sleepTime), e);
 		
 		return sleepTime;
 	}

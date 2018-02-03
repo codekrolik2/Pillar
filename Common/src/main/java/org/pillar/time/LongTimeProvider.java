@@ -9,6 +9,10 @@ public class LongTimeProvider implements TimeProvider {
 		return new LongTimestamp(Long.parseLong(rawTime));
 	}
 
+	public Timestamp createTimestamp(long time) {
+		return new LongTimestamp(time);
+	}
+	
 	@Override
 	public Timestamp getCurrentTime() {
 		return new LongTimestamp(System.currentTimeMillis());

@@ -145,36 +145,48 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 		    		)
 		    ) {
 	    		//Heartbeat lost due to thread delay - wasn't able to run heartbeat for (1.5 * updateFrequency).
-				throw new Exception("Heartbeat lost due to Heartbeat abnormality. " +
-						"[projectedUpdateTime " + projectedUpdateTime.getRawTime() + "; currentTime " + currentTime.getRawTime() + 
-						"; previousUpdateTime " + previousUpdateTime.getRawTime() + "; heartbeatPeriod " + heartbeatPeriod + "]");
+				throw new Exception(
+					String.format("Heartbeat lost due to Heartbeat abnormality. " +
+							"[projectedUpdateTime %s; currentTime %s; previousUpdateTime %s; heartbeatPeriod %s]",
+							projectedUpdateTime.getRawTime(), 
+							currentTime.getRawTime(), 
+							previousUpdateTime.getRawTime(), 
+							heartbeatPeriod)
+				);
 	    	}
     	}
     }
     
-	public boolean registerServerHB(String serverInfo, Timestamp currentTime) {
+	public void registerServerHB(String serverInfo, Timestamp currentTime) throws Exception {
 		TransactionContext t = null;
         try {
         	testHBSanity(currentTime);
         	
-    		String heartbeatMessage = "HB start: " + new Date();
-    		
+        	Date hbStart = new Date(); 
 			//1) TXN1: Update pulse record and refresh pulse records list
     		t = connectionFactory.startTransaction();
         	if (localServer == null) {
         		//register pulse record
         		localServer = createServer(t, currentTime, heartbeatPeriod, serverInfo);
         		
-        		heartbeatMessage = "Server registered: " + localServer.getServerId() + " - currentTime [" + currentTime.getRawTime() + "] " + heartbeatMessage;
-        		
         		t.commit();
+        	
+            	logger.info(String.format("HB registered: serverId [%d]; HB period [%d]; currentTime [%s]; HB start: %s",
+            			localServer.getServerId(), 
+            			heartbeatPeriod, 
+            			currentTime.getRawTime(), 
+            			hbStart));
         	} else {
         		//update pulse record
         		updateServerHeartbeat(t, localServer.getServerId(), currentTime, heartbeatPeriod, serverInfo);
         		
-        		heartbeatMessage = "Server HB updated: " + localServer.getServerId() + " - currentTime [" + currentTime.getRawTime() + "] " + heartbeatMessage;
-        		
         		t.commit();
+        	
+            	logger.info(String.format("HB updated: serverId [%d]; HB period [%d]; currentTime [%s]; HB start: %s",
+            			localServer.getServerId(), 
+            			heartbeatPeriod, 
+            			currentTime.getRawTime(), 
+            			hbStart));
         	}
         	//done updating
         	t.close();
@@ -195,11 +207,10 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
         			localServerFound = true;
         	
         	if (!localServerFound)
-        		throw new Exception("Sanity check failed: server record not found serverId " + localServer.getServerId());
-			
-        	logger.debug(heartbeatMessage);
-	        
-        	return true;
+        		throw new Exception(
+        			String.format("Sanity check failed: server record not found serverId: %d", 
+        					localServer.getServerId())
+        		);
 	    } catch(SQLException e) {
     		logger.error("Heartbeat lost due to SQL exception:", e);
 
@@ -212,14 +223,14 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
     		
     		loseHeartbeat();
     		
-	    	return false;
+	    	throw e;
 	    } catch(Exception e) {
     		logger.error("Heartbeat lost due to exception:", e);
 
     		//reset serverId and clear active servers
     		loseHeartbeat();
     		
-	    	return false;
+    		throw e;
 	    } finally {
 	    	try {
 		    	if (t != null)
@@ -233,8 +244,6 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	        	ConcurrentHashMap<S, ServerHbHistory> serverMap = activeServers.get();
 	        	
 	        	for (ServerHbHistory serverDef : serverMap.values()) {
-	        		logger.info(serverDef.server.getServerId() + " : " + serverDef.localChecks + " : " + serverDef.maxLocalChecksWithoutUpdate);
-	        		
 	        		if (serverDef.localChecks >= serverDef.maxLocalChecksWithoutUpdate) {
         		    	//Attempt to delete a record for a server that missed more than [heartbeatsBeforeMarkdown] heartbeats
         				ServerPulseRecord<S> server = serverDef.server;
@@ -270,8 +279,19 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
     			cleaner.deleteServer(tc, server.getServerId());
     		
         	tc.commit();
+        	
+        	logger.info(
+        		String.format("Expired server record deleted | id: %s - %s",
+        			server.getServerId(),
+        			server.getInfo()
+        		)
+        	);
 	    } catch(Exception e) {
-    		logger.error("Expired server record deletion failure: [" + "id: " + server.getServerId() + " : " + server.getInfo(), e);
+    		logger.error(
+            		String.format("Expired server record deletion failure | id: %s - %s",
+                			server.getServerId(),
+                			server.getInfo()
+                		), e);
 
     		try {
 	    		if (tc != null)
@@ -287,7 +307,5 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	    		logger.error("Error while trying to close a SQL connection", e1);
 	    	}
 	    }
-    	
-    	logger.info("Expired server record deleted | id: " + server.getServerId() + " - " + server.getInfo());
     }
 }
