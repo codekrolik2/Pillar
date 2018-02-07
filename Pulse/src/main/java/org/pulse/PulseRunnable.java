@@ -14,18 +14,18 @@ import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
 import org.pillar.wait.WaitStrategies;
 import org.pillar.wait.interfaces.WaitStrategy;
-import org.pulse.interfaces.Pulse;
+import org.pulse.interfaces.PulseReg;
 import org.pulse.interfaces.ServerPulseListener;
 import org.pulse.interfaces.ServerPulseRecord;
 
 public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
     private static final Logger logger = Logger.getLogger(PulseRunnable.class);
 	
-    private Pulse<S> pulse;
+    private PulseReg<S> pulse;
     private Supplier<String> serverInfoGetter;
     private TimeProvider timeProvider;
     
-	public PulseRunnable(ScheduledExecutorService scheduler, Pulse<S> pulse, Supplier<String> serverInfoGetter,
+	public PulseRunnable(ScheduledExecutorService scheduler, PulseReg<S> pulse, Supplier<String> serverInfoGetter,
 			TimeProvider timeProvider, long heartbeatFrequency) {
 		super(scheduler, 
 				new PulserTimeProvider(timeProvider, 

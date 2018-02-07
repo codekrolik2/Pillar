@@ -9,19 +9,20 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 import org.pillar.db.interfaces.TransactionContext;
 import org.pillar.db.interfaces.TransactionFactory;
 import org.pillar.time.interfaces.Timestamp;
-import org.pulse.interfaces.Pulse;
+import org.pulse.interfaces.PulseReg;
 import org.pulse.interfaces.ServerChecker;
 import org.pulse.interfaces.ServerPulseDAO;
 import org.pulse.interfaces.ServerPulseRecord;
 import org.pulse.interfaces.ServerPulseRecordCleaner;
 
-public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> implements Pulse<S> {
+public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> implements PulseReg<S> {
     private static final Logger logger = Logger.getLogger(DefaultPulse.class);
     
     private class ServerHbHistory {
@@ -63,8 +64,12 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
     protected ServerChecker<S> serverChecker;
     protected int heartbeatPeriod;
     
+    protected ReentrantLock lock;
+    
     public DefaultPulse(TransactionFactory connectionFactory, ServerPulseDAO<S> serverDAO, ServerChecker<S> serverChecker,
     		int heartbeatPeriod) {
+    	lock = new ReentrantLock();
+    	
 	    this.connectionFactory = connectionFactory;
 	    this.serverDAO = serverDAO;
 	    this.serverChecker = serverChecker;
@@ -81,84 +86,47 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	    clearServerDefinitions();
     }
     
-    protected ServerPulseRecord<S> createServer(TransactionContext tc, Timestamp registrationTime, long heartbeatPeriod, String serverInfo) throws Exception {
-		return serverDAO.createServer(tc, registrationTime, heartbeatPeriod, serverInfo);
-    }
-    
-    protected void updateServerHeartbeat(TransactionContext tc, S serverId, Timestamp newHeartbeatTime, long heartbeatPeriod, String serverInfo) throws Exception {
-		serverDAO.updateHeartbeat(tc, serverId, newHeartbeatTime, heartbeatPeriod, serverInfo);
-    }
-    
+	@Override
     public List<ServerPulseRecord<S>> getActiveServers() {
-		ConcurrentHashMap<S, ServerHbHistory> map = activeServers.get();
-		List<ServerPulseRecord<S>> servers = map.values().stream().map(srv -> srv.server).collect(Collectors.toList());
-		
-		return servers;
+		lock.lock();
+		try {
+			ConcurrentHashMap<S, ServerHbHistory> map = activeServers.get();
+			List<ServerPulseRecord<S>> servers = map.values().stream().map(srv -> srv.server).collect(Collectors.toList());
+			
+			return servers;
+		} finally {
+			lock.unlock();
+		}
     }
 
 	@Override
 	public Optional<ServerPulseRecord<S>> getActiveServerPulseRecord() {
-		return Optional.ofNullable(localServer);
+		lock.lock();
+		try {
+			return Optional.ofNullable(localServer);
+		} finally {
+			lock.unlock();
+		}
 	}
-    
-    private void updateServerDefinitions(List<ServerPulseRecord<S>> newServers, long localHeartbeatPeriod) {
-    	ConcurrentHashMap<S, ServerHbHistory> serverMap = activeServers.get();
-    	
-    	//1. Identify and remove missing servers
-    	
-    	//Identify servers missing from the current set
-    	HashMap<S, ServerPulseRecord<S>> newServersById = new HashMap<S, ServerPulseRecord<S>>();
-    	for (ServerPulseRecord<S> newServer : newServers)
-    		newServersById.put(newServer.getServerId(), newServer);
-    	
-    	List<S> missingServers = new ArrayList<S>();
-    	for (S oldServerId : serverMap.keySet()) {
-    		if (!newServersById.containsKey(oldServerId))
-    			missingServers.add(oldServerId);
-    	}
-    	
-    	//Remove missing servers
-    	for (S missingServerId : missingServers)
-    		serverMap.remove(missingServerId);
-    	
-    	//2. Update servers heartbeat info - increments localChecks for abandoned records 
-    	for (ServerPulseRecord<S> newServer : newServers) {
-    		ServerHbHistory def = serverMap.get(newServer.getServerId());
-    		if (def != null) {
-    			def.updateHB(newServer.getLastHBTime(), newServer.getHBPeriodMs(), heartbeatPeriod);
-    		} else {
-    			ServerHbHistory newDef = new ServerHbHistory(newServer, newServer.getLastHBTime(), newServer.getHBPeriodMs());
-    			serverMap.put(newServer.getServerId(), newDef);
-    		}
-    	}
-    }
-    
-    Timestamp previousUpdateTime = null;
-    void testHBSanity(Timestamp currentTime) throws Exception {
-    	if (previousUpdateTime != null) {
-	    	Timestamp projectedUpdateTime = previousUpdateTime.shiftBy(heartbeatPeriod + (long)(maxMissedHeartbeats*heartbeatPeriod), TimeUnit.MILLISECONDS);
-	    	if (
-		    		(localServer != null) && 
-		    		(
-		    			(currentTime.compareTo(projectedUpdateTime) > 0) ||
-		    			(currentTime.compareTo(previousUpdateTime) < 0)
-		    		)
-		    ) {
-	    		//Heartbeat lost due to thread delay - wasn't able to run heartbeat for (1.5 * updateFrequency).
-				throw new Exception(
-					String.format("Heartbeat lost due to Heartbeat abnormality. " +
-							"[projectedUpdateTime %s; currentTime %s; previousUpdateTime %s; heartbeatPeriod %s]",
-							projectedUpdateTime.getRawTime(), 
-							currentTime.getRawTime(), 
-							previousUpdateTime.getRawTime(), 
-							heartbeatPeriod)
-				);
-	    	}
-    	}
-    }
-    
+	
+	@Override
+	public void loseHeartbeat() {
+		lock.lock();
+		try {
+			localServer = null;
+			previousUpdateTime = null;
+			clearServerDefinitions();
+		} catch(Exception e) {
+			logger.error("Heartbeat loss error", e);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	@Override
 	public void registerServerHB(String serverInfo, Timestamp currentTime) throws Exception {
 		TransactionContext t = null;
+		lock.lock();
         try {
         	testHBSanity(currentTime);
         	
@@ -255,17 +223,9 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	    		//Even if deletion of expired coordinators failed, it's still a success
 	    		logger.error("Error while trying to delete expired coordinators", e1);
 	    	}
+			
+	        lock.unlock();
     	}
-	}
-	
-    private void clearServerDefinitions() {
-    	activeServers.set(new ConcurrentHashMap<S, ServerHbHistory>());
-    }
-	
-	public void loseHeartbeat() {
-		localServer = null;
-		previousUpdateTime = null;
-		clearServerDefinitions();
 	}
 	
 	//---------------------------------------------
@@ -307,5 +267,73 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	    		logger.error("Error while trying to close a SQL connection", e1);
 	    	}
 	    }
+    }
+    
+    protected ServerPulseRecord<S> createServer(TransactionContext tc, Timestamp registrationTime, long heartbeatPeriod, String serverInfo) throws Exception {
+		return serverDAO.createServer(tc, registrationTime, heartbeatPeriod, serverInfo);
+    }
+    
+    protected void updateServerHeartbeat(TransactionContext tc, S serverId, Timestamp newHeartbeatTime, long heartbeatPeriod, String serverInfo) throws Exception {
+		serverDAO.updateHeartbeat(tc, serverId, newHeartbeatTime, heartbeatPeriod, serverInfo);
+    }
+	
+    protected void clearServerDefinitions() {
+    	activeServers.set(new ConcurrentHashMap<S, ServerHbHistory>());
+    }
+    
+    Timestamp previousUpdateTime = null;
+    protected void testHBSanity(Timestamp currentTime) throws Exception {
+    	if (previousUpdateTime != null) {
+	    	Timestamp projectedUpdateTime = previousUpdateTime.shiftBy(heartbeatPeriod + (long)(maxMissedHeartbeats*heartbeatPeriod), TimeUnit.MILLISECONDS);
+	    	if (
+		    		(localServer != null) && 
+		    		(
+		    			(currentTime.compareTo(projectedUpdateTime) > 0) ||
+		    			(currentTime.compareTo(previousUpdateTime) < 0)
+		    		)
+		    ) {
+	    		//Heartbeat lost due to thread delay - wasn't able to run heartbeat for (1.5 * updateFrequency).
+				throw new Exception(
+					String.format("Heartbeat lost due to Heartbeat abnormality. " +
+							"[projectedUpdateTime %s; currentTime %s; previousUpdateTime %s; heartbeatPeriod %s]",
+							projectedUpdateTime.getRawTime(), 
+							currentTime.getRawTime(), 
+							previousUpdateTime.getRawTime(), 
+							heartbeatPeriod)
+				);
+	    	}
+    	}
+    }
+    
+    protected void updateServerDefinitions(List<ServerPulseRecord<S>> newServers, long localHeartbeatPeriod) {
+    	ConcurrentHashMap<S, ServerHbHistory> serverMap = activeServers.get();
+    	
+    	//1. Identify and remove missing servers
+    	
+    	//Identify servers missing from the current set
+    	HashMap<S, ServerPulseRecord<S>> newServersById = new HashMap<S, ServerPulseRecord<S>>();
+    	for (ServerPulseRecord<S> newServer : newServers)
+    		newServersById.put(newServer.getServerId(), newServer);
+    	
+    	List<S> missingServers = new ArrayList<S>();
+    	for (S oldServerId : serverMap.keySet()) {
+    		if (!newServersById.containsKey(oldServerId))
+    			missingServers.add(oldServerId);
+    	}
+    	
+    	//Remove missing servers
+    	for (S missingServerId : missingServers)
+    		serverMap.remove(missingServerId);
+    	
+    	//2. Update servers heartbeat info - increments localChecks for abandoned records 
+    	for (ServerPulseRecord<S> newServer : newServers) {
+    		ServerHbHistory def = serverMap.get(newServer.getServerId());
+    		if (def != null) {
+    			def.updateHB(newServer.getLastHBTime(), newServer.getHBPeriodMs(), heartbeatPeriod);
+    		} else {
+    			ServerHbHistory newDef = new ServerHbHistory(newServer, newServer.getLastHBTime(), newServer.getHBPeriodMs());
+    			serverMap.put(newServer.getServerId(), newDef);
+    		}
+    	}
     }
 }
