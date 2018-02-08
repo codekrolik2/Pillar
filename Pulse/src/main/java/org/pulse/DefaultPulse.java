@@ -2,10 +2,12 @@ package org.pulse;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,8 +21,11 @@ import org.pillar.time.interfaces.Timestamp;
 import org.pulse.interfaces.PulseReg;
 import org.pulse.interfaces.ServerChecker;
 import org.pulse.interfaces.ServerPulseDAO;
+import org.pulse.interfaces.ServerPulseListener;
 import org.pulse.interfaces.ServerPulseRecord;
 import org.pulse.interfaces.ServerPulseRecordCleaner;
+
+import lombok.Getter;
 
 public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> implements PulseReg<S> {
     private static final Logger logger = Logger.getLogger(DefaultPulse.class);
@@ -110,11 +115,14 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	}
 	
 	@Override
-	public void loseHeartbeat() {
+	public void loseHeartbeat(Exception le) {
 		lock.lock();
 		try {
 			localServer = null;
 			previousUpdateTime = null;
+        	
+			notifyHBLost(le);
+
 			clearServerDefinitions();
 		} catch(Exception e) {
 			logger.error("Heartbeat loss error", e);
@@ -144,6 +152,8 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
             			heartbeatPeriod, 
             			currentTime.getRawTime(), 
             			hbStart));
+            	
+            	notifyHBCreated(localServer);
         	} else {
         		//update pulse record
         		updateServerHeartbeat(t, localServer.getServerId(), currentTime, heartbeatPeriod, serverInfo);
@@ -155,6 +165,8 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
             			heartbeatPeriod, 
             			currentTime.getRawTime(), 
             			hbStart));
+        	
+            	notifyHBUpdated(localServer);
         	}
         	//done updating
         	t.close();
@@ -189,14 +201,14 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
 	    		logger.error("Error while trying to roll back a transaction", e1);
 	    	}
     		
-    		loseHeartbeat();
+    		loseHeartbeat(e);
     		
 	    	throw e;
 	    } catch(Exception e) {
     		logger.error("Heartbeat lost due to exception:", e);
 
     		//reset serverId and clear active servers
-    		loseHeartbeat();
+    		loseHeartbeat(e);
     		
     		throw e;
 	    } finally {
@@ -335,5 +347,53 @@ public class DefaultPulse<S> extends ServerPulseRecordCleanerRegistryImpl<S> imp
     			serverMap.put(newServer.getServerId(), newDef);
     		}
     	}
+    }
+    
+	//--------------------------
+	
+    @Getter
+	private Set<ServerPulseListener<S>> serverPulseListeners = 
+			Collections.newSetFromMap(new ConcurrentHashMap<ServerPulseListener<S>, Boolean>());
+	
+	@Override
+    public void addServerPulseListener(ServerPulseListener<S> pulseListener) {
+    	serverPulseListeners.add(pulseListener);
+    }
+    
+	@Override
+    public boolean removeServerPulseListener(ServerPulseListener<S> pulseListener) {
+		return serverPulseListeners.remove(pulseListener);
+    }
+    
+	@Override
+    public void clearServerPulseListener() {
+    	serverPulseListeners.clear();
+    }
+    
+    protected void notifyHBCreated(ServerPulseRecord<S> server) {
+    	for (ServerPulseListener<S> pulseListener : serverPulseListeners)
+			try {
+				pulseListener.hbCreated(server);
+			} catch (Exception e) {
+				logger.error("ServerPulseListener.hbCreated exception", e);
+			}
+    }
+    
+    protected void notifyHBUpdated(ServerPulseRecord<S> server) {
+    	for (ServerPulseListener<S> pulseListener : serverPulseListeners)
+			try {
+				pulseListener.hbUpdated(server);
+			} catch (Exception e) {
+				logger.error("ServerPulseListener.hbUpdated exception", e);
+			}
+    }
+    
+    protected void notifyHBLost(Exception e) {
+    	for (ServerPulseListener<S> pulseListener : serverPulseListeners)
+			try {
+				pulseListener.hbLost(e);
+			} catch (Exception e1) {
+				logger.error("ServerPulseListener.hbLost exception", e1);
+			}
     }
 }

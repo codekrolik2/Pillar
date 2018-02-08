@@ -1,8 +1,5 @@
 package org.pulse;
 
-import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -15,20 +12,15 @@ import org.pillar.time.interfaces.Timestamp;
 import org.pillar.wait.WaitStrategies;
 import org.pillar.wait.interfaces.WaitStrategy;
 import org.pulse.interfaces.PulseReg;
-import org.pulse.interfaces.ServerPulseListener;
-import org.pulse.interfaces.ServerPulseRecord;
 
 public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
-    private static final Logger logger = Logger.getLogger(PulseRunnable.class);
-	
     private PulseReg<S> pulse;
     private Supplier<String> serverInfoGetter;
     private TimeProvider timeProvider;
     
 	public PulseRunnable(ScheduledExecutorService scheduler, PulseReg<S> pulse, Supplier<String> serverInfoGetter,
 			TimeProvider timeProvider, long heartbeatFrequency) {
-		super(scheduler, 
-				new PulserTimeProvider(timeProvider, 
+		super(scheduler, new PulserTimeProvider(timeProvider, 
 						WaitStrategies.exponentialWait(heartbeatFrequency, TimeUnit.MILLISECONDS),
 						heartbeatFrequency));
 		
@@ -44,49 +36,11 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
 			
 			pulse.registerServerHB(serverInfoGetter.get(), hbTime);
 			
-			notifySuccessfulHB(pulse.getActiveServerPulseRecord().get());
-			
 			return hbTime;
 		} catch (Exception e) {
-			notifyFailedHB(e);
 			throw e;
 		}
 	}
-	
-	//--------------------------
-	
-	private Set<ServerPulseListener<S>> serverPulseListeners = 
-			Collections.newSetFromMap(new ConcurrentHashMap<ServerPulseListener<S>, Boolean>());
-	
-    public void addServerPulseListener(ServerPulseListener<S> pulseListener) {
-    	serverPulseListeners.add(pulseListener);
-    }
-
-    public boolean removeServerPulseListener(ServerPulseListener<S> pulseListener) {
-		return serverPulseListeners.remove(pulseListener);
-    }
-
-    public void clearServerPulseListener() {
-    	serverPulseListeners.clear();
-    }
-
-    protected void notifySuccessfulHB(ServerPulseRecord<S> server) {
-    	for (ServerPulseListener<S> pulseListener : serverPulseListeners)
-			try {
-				pulseListener.hbSuccessful(server);
-			} catch (Exception e) {
-				logger.error("ServerPulseListener.hbSuccessful exception", e);
-			}
-    }
-
-    protected void notifyFailedHB(Exception e) {
-    	for (ServerPulseListener<S> pulseListener : serverPulseListeners)
-			try {
-				pulseListener.hbFailed(e);
-			} catch (Exception e1) {
-				logger.error("ServerPulseListener.hbFailed exception", e1);
-			}
-    }
 }
 
 class PulserTimeProvider implements SleepTimeProvider<Timestamp> {

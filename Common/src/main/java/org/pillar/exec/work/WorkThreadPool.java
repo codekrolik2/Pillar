@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
 
-public abstract class WorkThreadPool<W> {
+public class WorkThreadPool<W> {
 	protected AtomicInteger desiredSize;
 	protected AtomicInteger size;
 	protected Set<Thread> threads;
@@ -20,23 +20,19 @@ public abstract class WorkThreadPool<W> {
 	protected ReentrantLock waitLock;
 	protected Condition waitCondition;
 	
-	public WorkThreadPool(TimeProvider timeProvider) {
+	protected WorkThreadPoolRunnableFactory<W> runnableFactory;
+	
+	public WorkThreadPool(TimeProvider timeProvider, WorkThreadPoolRunnableFactory<W> runnableFactory) {
 		desiredSize = new AtomicInteger(-1);
 		this.size = new AtomicInteger(0);
 		threads = new HashSet<>();
 		waitLock = new ReentrantLock();
 		waitCondition = waitLock.newCondition();
 		this.timeProvider = timeProvider;
+		this.runnableFactory = runnableFactory;
 		
 		q = new PriorityQueue<>();
 	}
-	
-	public WorkThreadPool(int size, TimeProvider timeProvider) {
-		this(timeProvider);
-		adjustSize(size);
-	}
-	
-	protected abstract WorkThreadPoolRunnable<W> createRunnable();
 	
 	class DelayedWork implements Comparable<DelayedWork> {
 		W work;
@@ -138,7 +134,7 @@ public abstract class WorkThreadPool<W> {
 		waitLock.lock();
 		try {
 			if (size.get() < desiredSize.get()) {
-				WorkThreadPoolRunnable<W> runnable = createRunnable();
+				WorkThreadPoolRunnable<W> runnable = runnableFactory.createRunnable();
 				Thread thread = new Thread(runnable);
 				thread.start();
 				threads.add(thread);
@@ -169,6 +165,10 @@ public abstract class WorkThreadPool<W> {
 		} finally {
 			waitLock.unlock();
 		}
+	}
+	
+	public void start(int threadCount) {
+		adjustSize(threadCount);
 	}
 	
 	public void adjustSize(int newDesiredSize) {
