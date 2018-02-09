@@ -20,9 +20,12 @@ public abstract class WorkThreadPoolRunnable<W> implements Runnable {
 			
 			if (work != null) {
 				try {
+					pool.incrementInFlight();
 					process(work);
 				} catch (Exception e) {
 					logger.error("Processing exception occured", e);
+				} finally {
+					pool.decrementInFlight();
 				}
 			}
 			

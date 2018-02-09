@@ -11,8 +11,8 @@ import org.pillar.time.interfaces.TimeProvider;
 import org.pillar.time.interfaces.Timestamp;
 
 public class WorkThreadPool<W> {
-	protected AtomicInteger desiredSize;
-	protected AtomicInteger size;
+	protected AtomicInteger desiredThreadCount;
+	protected AtomicInteger threadCount;
 	protected Set<Thread> threads;
 	protected TimeProvider timeProvider;
 	
@@ -20,11 +20,14 @@ public class WorkThreadPool<W> {
 	protected ReentrantLock waitLock;
 	protected Condition waitCondition;
 	
+	protected AtomicInteger jobsInFlight = new AtomicInteger(0);
+	protected AtomicInteger jobsInQ = new AtomicInteger(0);
+	
 	protected WorkThreadPoolRunnableFactory<W> runnableFactory;
 	
 	public WorkThreadPool(TimeProvider timeProvider, WorkThreadPoolRunnableFactory<W> runnableFactory) {
-		desiredSize = new AtomicInteger(-1);
-		this.size = new AtomicInteger(0);
+		desiredThreadCount = new AtomicInteger(-1);
+		this.threadCount = new AtomicInteger(0);
 		threads = new HashSet<>();
 		waitLock = new ReentrantLock();
 		waitCondition = waitLock.newCondition();
@@ -90,6 +93,7 @@ public class WorkThreadPool<W> {
 		waitLock.lock();
         try {
         	q.add(new DelayedWork(work, delayMS, timeProvider.getCurrentTime()));
+        	jobsInQ.incrementAndGet();
         	waitCondition.signal();
         } finally {
             waitLock.unlock();
@@ -106,8 +110,10 @@ public class WorkThreadPool<W> {
                     waitCondition.await();
                 else {
                     long delay = first.getDelay();
-                    if (delay <= 0)
+                    if (delay <= 0) {
+                    	jobsInQ.decrementAndGet();
                         return q.poll().work;
+                    }
 
                     if (leader != null)
                     	waitCondition.await();
@@ -133,12 +139,12 @@ public class WorkThreadPool<W> {
 	protected boolean spawnThread() {
 		waitLock.lock();
 		try {
-			if (size.get() < desiredSize.get()) {
+			if (threadCount.get() < desiredThreadCount.get()) {
 				WorkThreadPoolRunnable<W> runnable = runnableFactory.createRunnable();
 				Thread thread = new Thread(runnable);
 				thread.start();
 				threads.add(thread);
-				size.incrementAndGet();
+				threadCount.incrementAndGet();
 				return true;
 			} else
 				return false;
@@ -148,7 +154,7 @@ public class WorkThreadPool<W> {
 	}
 	
 	public boolean requestShutdown() {
-		if (size.get() <= desiredSize.get())
+		if (threadCount.get() <= desiredThreadCount.get())
 			return false;
 		
 		waitLock.lock();
@@ -156,9 +162,9 @@ public class WorkThreadPool<W> {
 			if (!threads.contains(Thread.currentThread()))
 				throw new IllegalArgumentException("Thread pool doesn't contain Current Thread");
 			
-			if (size.get() > desiredSize.get()) {
+			if (threadCount.get() > desiredThreadCount.get()) {
 				threads.remove(Thread.currentThread());
-				size.decrementAndGet();
+				threadCount.decrementAndGet();
 				return true;
 			} else
 				return false;
@@ -168,22 +174,22 @@ public class WorkThreadPool<W> {
 	}
 	
 	public void start(int threadCount) {
-		adjustSize(threadCount);
+		adjustThreadCount(threadCount);
 	}
 	
-	public void adjustSize(int newDesiredSize) {
-		if (newDesiredSize < 1)
+	public void adjustThreadCount(int newDesiredThreadCount) {
+		if (newDesiredThreadCount < 1)
 			throw new IllegalArgumentException("To remove all threads call shutdown()");
 		
 		waitLock.lock();
 		try {
-			if (desiredSize.get() == 0)
+			if (desiredThreadCount.get() == 0)
 				throw new IllegalStateException("Thread Pool was shut down");
 			
-			desiredSize.set(newDesiredSize);
+			desiredThreadCount.set(newDesiredThreadCount);
 			
-			if (size.get() < desiredSize.getAndIncrement()) {
-				for (int i = size.get(); i < desiredSize.get(); i++) {
+			if (threadCount.get() < desiredThreadCount.getAndIncrement()) {
+				for (int i = threadCount.get(); i < desiredThreadCount.get(); i++) {
 					spawnThread();
 				}
 			} else {
@@ -197,7 +203,7 @@ public class WorkThreadPool<W> {
 	public void shutdown() {
 		waitLock.lock();
 		try {
-			desiredSize.set(0);
+			desiredThreadCount.set(0);
 			waitCondition.signalAll();
 		} finally {
 			waitLock.unlock();
@@ -214,15 +220,31 @@ public class WorkThreadPool<W> {
 		}
 	}
 	
-	public int getSize() {
-		return size.get();
+	public int getThreadCount() {
+		return threadCount.get();
 	}
 	
-	public int getDesiredSize() {
-		return desiredSize.get();
+	public int getDesiredThreadCount() {
+		return desiredThreadCount.get();
 	}
 	
 	public boolean isShutdown() {
-		return desiredSize.get() <= 0;
+		return desiredThreadCount.get() <= 0;
+	}
+	
+	public int getJobsInQ() {
+		return jobsInQ.get();
+	}
+	
+	public int getJobsInFlight() {
+		return jobsInFlight.get();
+	}
+	
+	public void incrementInFlight() {
+		jobsInFlight.incrementAndGet();
+	}
+	
+	public void decrementInFlight() {
+		jobsInFlight.decrementAndGet();
 	}
 }
