@@ -146,16 +146,16 @@ public final class WaitStrategies {
      * The wait time between the retries can be controlled by the multiplier.
      * nextWaitTime = exponentialIncrement * {@code multiplier}.
      *
-     * @param multiplier      multiply the wait time calculated by this
+     * @param minimumTime     the minimum time to sleep
      * @param maximumTime     the maximum time to sleep
      * @param maximumTimeUnit the unit of the maximum time
      * @return a wait strategy that increments with each failed attempt using exponential backoff
      */
-    public static WaitStrategy exponentialWait(long multiplier,
+    public static WaitStrategy exponentialWait(long minimumTime,
                                                long maximumTime,
                                                TimeUnit maximumTimeUnit) {
         Preconditions.checkNotNull(maximumTimeUnit, "The maximum time unit may not be null");
-        return new ExponentialWaitStrategy(multiplier, maximumTimeUnit.toMillis(maximumTime));
+        return new ExponentialWaitStrategy(minimumTime, maximumTimeUnit.toMillis(maximumTime));
     }
 
     /**

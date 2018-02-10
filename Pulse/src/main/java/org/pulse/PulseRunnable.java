@@ -19,9 +19,9 @@ public class PulseRunnable<S> extends CustomSleepPeriodRunnable<Timestamp> {
     private TimeProvider timeProvider;
     
 	public PulseRunnable(ScheduledExecutorService scheduler, PulseReg<S> pulse, Supplier<String> serverInfoGetter,
-			TimeProvider timeProvider, long heartbeatFrequency) {
+			TimeProvider timeProvider, long heartbeatFrequency, long minWait) {
 		super(scheduler, new PulserTimeProvider(timeProvider, 
-						WaitStrategies.exponentialWait(heartbeatFrequency, TimeUnit.MILLISECONDS),
+						WaitStrategies.exponentialWait(minWait, heartbeatFrequency, TimeUnit.MILLISECONDS),
 						heartbeatFrequency));
 		
 		this.serverInfoGetter = serverInfoGetter;
@@ -51,8 +51,10 @@ class PulserTimeProvider implements SleepTimeProvider<Timestamp> {
     protected TimeProvider timeProvider;
     protected long heartbeatFrequency;
     protected int heartbeatRetryAttempts;
+    protected long minWait;
     
-    public PulserTimeProvider(TimeProvider timeProvider, WaitStrategy waitStrategy, long heartbeatFrequency) {
+    public PulserTimeProvider(TimeProvider timeProvider, WaitStrategy waitStrategy, 
+    		long heartbeatFrequency) {
     	this.timeProvider = timeProvider;
     	this.waitStrategy = waitStrategy;
     	this.heartbeatFrequency = heartbeatFrequency;
