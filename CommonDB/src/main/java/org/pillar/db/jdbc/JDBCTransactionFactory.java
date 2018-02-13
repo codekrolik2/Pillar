@@ -72,6 +72,23 @@ public class JDBCTransactionFactory implements TransactionFactory {
         }
 	}
 	
+	public static long getFoundRows(Connection connection) throws SQLException {
+		PreparedStatement pst = null;
+        
+        try {
+            pst = connection.prepareStatement("SELECT FOUND_ROWS();");
+            ResultSet rs = pst.executeQuery();
+            
+            long id = -1;
+            while (rs.next())
+            	id = rs.getLong(1);
+            
+            return id;
+        } finally {
+            if (pst != null) { pst.close(); }
+        }
+	}
+	
 	public static Connection connectMySQL(String hosts, String user, String password, String dbName) throws SQLException {
 		String url = createMySQLUrl(hosts, dbName);
 		
