@@ -63,8 +63,8 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 				String.format("INSERT INTO `%s` (`%s`, `%s`, `%s`, `%s`) VALUES (?, ?, ?, ?)", 
 						serversTable, registrationTimeCol, lastHeartbeatTimeCol, heartbeatPeriodCol, serverInfoCol)
 			);
-			pst.setLong(1, ((LongTimestamp)registrationTime).getTimeMs());
-			pst.setLong(2, ((LongTimestamp)registrationTime).getTimeMs());
+			pst.setLong(1, ((LongTimestamp)registrationTime).getUnixTime());
+			pst.setLong(2, ((LongTimestamp)registrationTime).getUnixTime());
 			pst.setLong(3, heartbeatPeriod);
 			pst.setString(4, serverInfo);
 			
@@ -156,7 +156,7 @@ public class JDBCServerPulseDAO implements ServerPulseDAO<Long> {
 						idServerCol)
 			);
 			
-			pst.setLong(1, ((LongTimestamp)newHeartbeatTime).getTimeMs());
+			pst.setLong(1, ((LongTimestamp)newHeartbeatTime).getUnixTime());
 			pst.setLong(2, heartbeatPeriod);
 			pst.setString(3, serverInfo);
 			pst.setLong(4, serverId);

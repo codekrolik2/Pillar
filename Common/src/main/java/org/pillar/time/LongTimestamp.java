@@ -9,43 +9,43 @@ import lombok.Getter;
 
 public class LongTimestamp implements Timestamp {
 	@Getter
-	private long timeMs;
+	private long unixTime;
 	
-	public LongTimestamp(long timeMs) {
-		this.timeMs = timeMs;
+	public LongTimestamp(long unixTime) {
+		this.unixTime = unixTime;
 	}
 	
 	@Override
 	public int compareTo(Timestamp o) {
-		return Long.compare(timeMs, ((LongTimestamp)o).timeMs);
+		return Long.compare(unixTime, ((LongTimestamp)o).unixTime);
 	}
 
 	@Override
 	public String getRawTime() {
-		return Long.toString(timeMs);
+		return Long.toString(unixTime);
 	}
 
 	@Override
 	public Timestamp shiftBy(long time, TimeUnit unit) {
-		return new LongTimestamp(timeMs + unit.toMillis(time));
+		return new LongTimestamp(unixTime + unit.toMillis(time));
 	}
 
 	@Override
 	public long getDeltaInMs(Timestamp o) {
-		return ((LongTimestamp)o).timeMs - timeMs;
+		return ((LongTimestamp)o).unixTime - unixTime;
 	}
 
 	@Override
 	public String toString() {
-		Date d = new Date(timeMs);
-		return d.toString() + " [" + timeMs + "]";
+		Date d = new Date(unixTime);
+		return d.toString() + " [" + unixTime + "]";
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + (int) (timeMs ^ (timeMs >>> 32));
+		result = prime * result + (int) (unixTime ^ (unixTime >>> 32));
 		return result;
 	}
 
@@ -58,7 +58,7 @@ public class LongTimestamp implements Timestamp {
 		if (getClass() != obj.getClass())
 			return false;
 		LongTimestamp other = (LongTimestamp) obj;
-		if (timeMs != other.timeMs)
+		if (unixTime != other.unixTime)
 			return false;
 		return true;
 	}
