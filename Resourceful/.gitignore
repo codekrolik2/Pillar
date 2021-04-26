@@ -3,3 +3,5 @@
 .project
 .settings
 *.mwb.bak
+/.apt_generated/
+/.apt_generated_tests/
